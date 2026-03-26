@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import * as d3 from 'd3';
 import { motion, useMotionValue, useSpring, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
@@ -24,9 +24,10 @@ const REPULSION_STRENGTH = -800; // Stronger repulsion to separate clusters
 const CENTER_FORCE = 0.05; // Weaker center force to allow spread
 
 // --- Node Icon Mapping ---
-const getIconForType = (type, extension, fileName) => {
-  if (type === 'directory' || type === 'folder') return Folder;
-  if (type === 'module') return Box;
+const getIconForType = (type, extension, fileName, unitType) => {
+  if (unitType === 'folder' || type === 'directory' || type === 'folder') return Folder;
+  if (unitType === 'cluster' || type === 'module') return Box;
+
 
   const ext = (extension || '').toLowerCase().replace(/^\./, '');
   const name = (fileName || '').toLowerCase();
@@ -143,7 +144,7 @@ const getNodeStyles = (node, type, extension, mode, complexityData, centralityDa
     size: size
   };
 
-  if (type === 'directory' || type === 'folder') {
+  if (node.unitType === 'folder' || type === 'directory' || type === 'folder') {
     style = {
       ...style,
       text: 'text-blue-200',
@@ -155,7 +156,7 @@ const getNodeStyles = (node, type, extension, mode, complexityData, centralityDa
     };
   }
 
-  else if (type === 'module') {
+  else if (node.unitType === 'cluster' || type === 'module') {
     style = {
       ...style,
       text: 'text-purple-200',
@@ -615,9 +616,9 @@ const ContextOrb = ({ node }) => {
     <motion.div
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className="absolute bottom-8 left-6 pointer-events-none z-50 bg-[#0B0B15]/80 backdrop-blur-md rounded-3xl p-6 border border-white/10 shadow-2xl"
+      className="absolute bottom-8 left-1/2 -translate-x-1/2 md:left-6 md:translate-x-0 pointer-events-none z-50 bg-[#0B0B15]/80 backdrop-blur-md rounded-3xl p-4 md:p-6 border border-white/10 shadow-2xl max-w-[90vw] md:max-w-none"
     >
-      <div className="relative w-32 h-32 flex items-center justify-center">
+      <div className="relative w-24 h-24 md:w-32 md:h-32 flex items-center justify-center mx-auto">
         {/* Background Grids */}
         <div className="absolute inset-0 border border-white/5 rounded-full" />
         <div className="absolute inset-4 border border-white/5 rounded-full opacity-50" />
@@ -703,11 +704,14 @@ const GraphNode = ({ node, styles, mouseX, mouseY, onHover, onClick, isSelected,
     );
   }
 
-  // Robust extension detection
-  const extension = node.extension || (node.label && node.label.includes('.') ? node.label.split('.').pop() : '');
-  const fileName = node.label || node.name || '';
+  // Robust extension detection from fullPath if label lacks it
+  const pathForExt = node.fullPath || node.path || node.id || node.label || node.name || '';
+  const extension = node.extension || 
+                   (node.label && node.label.includes('.') ? node.label.split('.').pop() : '') ||
+                   (pathForExt.includes('.') ? pathForExt.split('.').pop() : '');
+  const fileName = node.label || node.name || pathForExt.split(/[/\\]/).pop() || '';
 
-  const IconComponent = getIconForType(node.type, extension, fileName);
+  const IconComponent = getIconForType(node.type, extension, fileName, node.unitType);
 
   return (
     <motion.div
@@ -761,6 +765,14 @@ const GraphNode = ({ node, styles, mouseX, mouseY, onHover, onClick, isSelected,
           )}
           strokeWidth={1.5}
         />
+
+        {extension && extension.length <= 5 && node.unitType !== 'cluster' && node.unitType !== 'folder' && node.type !== 'directory' && node.type !== 'module' && (
+          <div className="absolute -bottom-2 -translate-y-1 bg-[#0B0B15]/95 border border-white/10 rounded-full px-1.5 py-[1px] z-20 shadow-md backdrop-blur-md">
+            <span className={cn("text-[7px] font-bold uppercase tracking-wider block", styles.text)}>
+              .{extension.replace(/^\./, '')}
+            </span>
+          </div>
+        )}
 
         {isImpacted && !isSelected && (
           <motion.div
@@ -819,7 +831,7 @@ const DetailedNodeTooltip = ({ node, onInspectInternals, onTraceImpact }) => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 10, scale: 0.95 }}
       transition={{ duration: 0.2 }}
-      className="absolute top-40 right-8 z-50 w-80 bg-[#0B0B15]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+      className="absolute top-20 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:top-40 md:right-8 z-50 w-[90vw] md:w-80 max-h-[60vh] overflow-y-auto bg-[#0B0B15]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
     >
       {/* Header */}
       <div className="p-4 border-b border-white/10 bg-gradient-to-r from-white/5 to-transparent">
@@ -932,6 +944,34 @@ export default function GraphCanvas() {
     selectedNode, setSelectedNode, toggleMultiSelect, multiSelectNodes, activePath,
     gitChurnData, prChangedFiles, forbiddenLinks, toggleForbiddenLink
   } = useStore();
+
+  // Dynamic container sizing via ResizeObserver
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        setContainerSize({ width, height });
+      }
+    });
+    observer.observe(containerRef.current);
+    // Set initial size
+    setContainerSize({
+      width: containerRef.current.clientWidth,
+      height: containerRef.current.clientHeight
+    });
+    return () => observer.disconnect();
+  }, []);
 
   // D3 & DOM refs
   const simulationRef = useRef(null);
@@ -1161,9 +1201,10 @@ export default function GraphCanvas() {
   // --- D3 Simulation ---
   useEffect(() => {
     if (!containerRef.current || !filteredData.nodes.length) return;
+    if (containerSize.width === 0 || containerSize.height === 0) return;
 
-    const width = containerRef.current.clientWidth;
-    const height = containerRef.current.clientHeight;
+    const width = containerSize.width;
+    const height = containerSize.height;
 
     // Simulation
     const simulation = d3.forceSimulation(filteredData.nodes)
@@ -1274,6 +1315,9 @@ export default function GraphCanvas() {
     return !isConnected;
   };
 
+  // Don't render graph internals until container has real dimensions
+  const hasSize = containerSize.width > 0 && containerSize.height > 0;
+
   return (
     <div
       ref={containerRef}
@@ -1281,6 +1325,15 @@ export default function GraphCanvas() {
       onMouseMove={handleMouseMove}
       onClick={handleBgClick}
     >
+      {/* Loading placeholder while waiting for container size */}
+      {!hasSize && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-2 border-cbct-accent/30 border-t-cbct-accent rounded-full animate-spin" />
+            <span className="text-xs text-cbct-muted">Initializing canvas...</span>
+          </div>
+        </div>
+      )}
       {/* Background Ambient Effects */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-0">
         <motion.div
@@ -1299,10 +1352,10 @@ export default function GraphCanvas() {
       </div>
 
       {/* Layer Selector */}
-      <LayerSelector />
+      {hasSize && <LayerSelector />}
 
       {/* Visualization Layer */}
-      <div className="absolute inset-0">
+      {hasSize && <div className="absolute inset-0">
         <svg
           className="absolute inset-0 w-full h-full pointer-events-none overflow-visible z-0"
           style={{ transform: `scale(${zoomTransform.k}) translate(${zoomTransform.x}px, ${zoomTransform.y}px)` }}
@@ -1416,69 +1469,73 @@ export default function GraphCanvas() {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
-      <ContextOrb node={selectedNode} />
+      {hasSize && !isMobile && <ContextOrb node={selectedNode} />}
 
       {/* Detailed Tooltip on Right Side */}
-      <AnimatePresence>
-        {(hoveredNode || selectedNode) && (
-          <DetailedNodeTooltip
-            node={hoveredNode || selectedNode}
-            onTraceImpact={(node) => {
-              setSelectedNode(node);
-              setSemanticLayer(3);
-            }}
-            onInspectInternals={(node) => {
-              setSelectedNode(node);
-              // Layer 4 Trigger (Explicit)
-              // Safety limit of 150 nodes is handled server-side in expandUnit
-              focusUnit(node, 4);
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {hasSize && (
+        <AnimatePresence>
+          {(hoveredNode || selectedNode) && (
+            <DetailedNodeTooltip
+              node={hoveredNode || selectedNode}
+              onTraceImpact={(node) => {
+                setSelectedNode(node);
+                setSemanticLayer(3);
+              }}
+              onInspectInternals={(node) => {
+                setSelectedNode(node);
+                // Layer 4 Trigger (Explicit)
+                // Safety limit of 150 nodes is handled server-side in expandUnit
+                focusUnit(node, 4);
+              }}
+            />
+          )}
+        </AnimatePresence>
+      )}
 
       {/* Accessibility Controls */}
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-        <div className="flex items-center gap-2 bg-[#0B0B15]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-2xl">
-          <button
-            onClick={handleZoomOut}
-            className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 group"
-            title="Zoom Out"
-            aria-label="Zoom out graph view"
-          >
-            <ZoomOut className="w-5 h-5 text-white/70 group-hover:text-white transition-colors" />
-          </button>
+      {hasSize && (
+        <div className="absolute bottom-4 md:bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="flex items-center gap-1 md:gap-2 bg-[#0B0B15]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 md:p-2 shadow-2xl">
+            <button
+              onClick={handleZoomOut}
+              className="p-2 md:p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 group"
+              title="Zoom Out"
+              aria-label="Zoom out graph view"
+            >
+              <ZoomOut className="w-4 h-4 md:w-5 md:h-5 text-white/70 group-hover:text-white transition-colors" />
+            </button>
 
-          <button
-            onClick={handleZoomReset}
-            className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 group"
-            title="Reset Zoom"
-            aria-label="Reset zoom to default"
-          >
-            <RotateCcw className="w-5 h-5 text-white/70 group-hover:text-white transition-colors" />
-          </button>
+            <button
+              onClick={handleZoomReset}
+              className="p-2 md:p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 group"
+              title="Reset Zoom"
+              aria-label="Reset zoom to default"
+            >
+              <RotateCcw className="w-4 h-4 md:w-5 md:h-5 text-white/70 group-hover:text-white transition-colors" />
+            </button>
 
-          <button
-            onClick={handleCenter}
-            className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 group"
-            title="Center View"
-            aria-label="Center the graph view"
-          >
-            <Target className="w-5 h-5 text-white/70 group-hover:text-white transition-colors" />
-          </button>
+            <button
+              onClick={handleCenter}
+              className="p-2 md:p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 group"
+              title="Center View"
+              aria-label="Center the graph view"
+            >
+              <Target className="w-4 h-4 md:w-5 md:h-5 text-white/70 group-hover:text-white transition-colors" />
+            </button>
 
-          <button
-            onClick={handleZoomIn}
-            className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 group"
-            title="Zoom In"
-            aria-label="Zoom in graph view"
-          >
-            <ZoomIn className="w-5 h-5 text-white/70 group-hover:text-white transition-colors" />
-          </button>
+            <button
+              onClick={handleZoomIn}
+              className="p-2 md:p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 group"
+              title="Zoom In"
+              aria-label="Zoom in graph view"
+            >
+              <ZoomIn className="w-4 h-4 md:w-5 md:h-5 text-white/70 group-hover:text-white transition-colors" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <LayerNotice layer={currentLayer} />
     </div>
@@ -1513,7 +1570,7 @@ const LayerNotice = ({ layer }) => {
           initial={{ opacity: 0, scale: 0.9, x: 20 }}
           animate={{ opacity: 1, scale: 1, x: 0 }}
           exit={{ opacity: 0, scale: 0.9, x: 20 }}
-          className="absolute top-9 right-8 pointer-events-none z-[100] flex flex-col items-end gap-4"
+          className="absolute top-9 right-2 md:right-8 pointer-events-none z-[100] flex flex-col items-end gap-4 max-w-[90vw]"
         >
           <div className="bg-cbct-accent/10 backdrop-blur-md border border-cbct-accent/20 rounded-full px-8 py-3 shadow-[0_0_30px_rgba(88,166,255,0.2)] flex items-center gap-6">
             <motion.div

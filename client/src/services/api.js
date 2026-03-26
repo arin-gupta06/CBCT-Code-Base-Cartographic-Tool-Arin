@@ -1,9 +1,10 @@
 import axios from 'axios';
 
-// Use Render backend in production, local proxy in development
-const BASE_URL = import.meta.env.PROD 
-  ? 'https://cbct-code-base-cartographic-tool.onrender.com/api'
-  : '/api';
+// Use VITE_API_URL env var first, then Render backend in production, local proxy in development
+const BASE_URL = import.meta.env.VITE_API_URL
+  || (import.meta.env.PROD
+    ? 'https://cbct-code-base-cartographic-tool.onrender.com/api'
+    : '/api');
 
 const client = axios.create({
   baseURL: BASE_URL,

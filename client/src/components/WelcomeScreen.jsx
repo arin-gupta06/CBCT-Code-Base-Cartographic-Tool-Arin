@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Map, FolderOpen, ArrowRight, Zap, Layers, ShieldCheck, Search } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import LinkToSquareAnimation from './ui/LineToSquareAnimation';
 
 function WelcomeScreen() {
   const [inputPath, setInputPath] = useState('');
@@ -22,7 +21,6 @@ function WelcomeScreen() {
 
   return (
     <div className="absolute inset-0 overflow-y-auto bg-cbct-bg text-cbct-text custom-scrollbar selection:bg-cbct-accent/30">
-      <LinkToSquareAnimation />
       {/* Tubelight Effect Background - White light spreading from top BEHIND navbar */}
       <div className="absolute top-0 left-0 right-0 h-[60vh] flex items-start justify-center overflow-hidden pointer-events-none z-0">
         
@@ -59,14 +57,14 @@ function WelcomeScreen() {
         />
       </div>
 
-      <div className="relative max-w-6xl mx-auto px-6 pt-32 pb-20 flex flex-col items-center min-h-full z-10">
+      <div className="relative max-w-6xl mx-auto px-4 md:px-6 pt-24 md:pt-32 pb-20 flex flex-col items-center min-h-[calc(100vh-64px)] z-10">
         
         {/* Hero Section with Animation */}
         <motion.div 
           initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ ease: "easeOut", delay: 0.2, duration: 0.8 }}
-          className="text-center max-w-4xl mx-auto mb-20 relative"
+          className="text-center max-w-4xl mx-auto mb-12 md:mb-20 relative px-2"
         >
           {/* Badge */}
           <motion.div 
@@ -86,9 +84,9 @@ function WelcomeScreen() {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.8 }}
-            className="text-6xl md:text-8xl font-bold leading-tight mb-8 tracking-tighter text-white drop-shadow-[0_0_35px_rgba(255,255,255,0.15)]"
+            className="text-4xl sm:text-5xl md:text-8xl font-bold leading-tight md:leading-tight mb-6 md:mb-8 tracking-tighter text-white drop-shadow-[0_0_35px_rgba(255,255,255,0.15)]"
           >
-            Say goodbye to <span className="text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-500">spaghetti code</span>.
+            Say goodbye to <span className="text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-500 block md:inline">spaghetti code.</span>
           </motion.h1>
 
           <motion.p 
@@ -105,12 +103,12 @@ function WelcomeScreen() {
             initial={{ y: 20, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             transition={{ delay: 0.5, duration: 0.6 }}
-            className="max-w-xl mx-auto"
+            className="max-w-xl mx-auto w-full"
           >
             <div className="relative group p-[1px] rounded-2xl bg-gradient-to-br from-white/20 to-transparent">
               <div className="bg-[#0B0B15]/80 backdrop-blur-xl rounded-2xl relative overflow-hidden">
-                <form onSubmit={handleSubmit} className="relative flex items-center p-2">
-                   <div className="absolute left-6 text-cbct-muted/50 group-hover:text-cbct-accent transition-colors">
+                <form onSubmit={handleSubmit} className="relative flex flex-col sm:flex-row items-center p-2 gap-2 sm:gap-0">
+                   <div className="hidden sm:block absolute left-6 text-cbct-muted/50 group-hover:text-cbct-accent transition-colors z-10">
                      <Search className="w-5 h-5" />
                    </div>
                    <input 
@@ -120,13 +118,13 @@ function WelcomeScreen() {
                         setInputPath(e.target.value);
                         if(error) clearError();
                       }}
-                      className="w-full bg-transparent border-none outline-none text-white px-14 py-4 placeholder:text-cbct-muted/30 font-medium text-lg"
+                      className="w-full bg-black/20 sm:bg-transparent border border-white/10 sm:border-none rounded-xl sm:rounded-none outline-none text-white px-4 sm:pl-14 sm:pr-36 py-3 sm:py-4 placeholder:text-cbct-muted/30 font-medium text-sm sm:text-lg"
                       placeholder="Paste repository URL or local path..." 
                    />
                    <button 
                       type="submit"
                       disabled={!inputPath.trim()}
-                      className="absolute right-2 px-8 py-3 bg-white text-black hover:bg-white/90 rounded-xl font-bold shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                      className="w-full sm:w-auto relative sm:absolute right-2 px-8 py-3 bg-white text-black hover:bg-white/90 rounded-xl font-bold shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                    >
                      Analyze
                    </button>
@@ -139,14 +137,14 @@ function WelcomeScreen() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.7, duration: 0.5 }}
-              className="mt-6 flex justify-center gap-6 text-xs text-cbct-muted/50 font-medium"
+              className="mt-6 flex flex-wrap justify-center gap-4 sm:gap-6 text-[10px] sm:text-xs text-cbct-muted/50 font-medium"
             >
-              <span>TRY:</span>
+              <span className="shrink-0 pt-0.5">TRY:</span>
               {examplePaths.map((ex) => (
                 <button 
                   key={ex.path}
                   onClick={() => setInputPath(ex.path)}
-                  className="hover:text-white transition-colors border-b border-transparent hover:border-white/50"
+                  className="hover:text-white transition-colors border-b border-white/20 hover:border-white/50 pb-0.5"
                 >
                   {ex.label}
                 </button>
@@ -167,7 +165,7 @@ function WelcomeScreen() {
         </motion.div>
 
         {/* Feature Cards with Glassmorphism */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl mt-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 w-full max-w-5xl mt-8 md:mt-12 px-2">
           {/* Card 1 */}
           <motion.div 
             initial={{ y: 30, opacity: 0 }}

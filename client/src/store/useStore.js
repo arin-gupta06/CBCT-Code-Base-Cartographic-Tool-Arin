@@ -46,6 +46,7 @@ export const useStore = create((set, get) => ({
   gitChurnData: {},      // File path -> modification count
   prChangedFiles: [],    // Array of file paths changed in current branch
   forbiddenLinks: [],     // Array of { source, target } ids for guardrails
+  apiError: null,          // Global async API error message for toast display
 
   // Semantic Layer Actions
   setSemanticLayer: (layer) => {
@@ -277,7 +278,37 @@ export const useStore = create((set, get) => ({
     }
   },
 
+  // Global async error actions
+  setApiError: (message) => set({ apiError: message }),
+  clearApiError: () => set({ apiError: null }),
+
+  // Reset graph state (used when starting a new scan)
+  resetGraph: () => {
+    set({
+      graphData: null,
+      complexityData: null,
+      centralityData: null,
+      selectedNode: null,
+      multiSelectNodes: [],
+      activePath: [],
+      gitChurnData: {},
+      prChangedFiles: [],
+      forbiddenLinks: [],
+      apiError: null,
+      semanticLayer: {
+        currentLayer: 1,
+        focusedUnit: null,
+        expandedUnits: [],
+        previousState: null,
+        revealDepth: 3,
+        isLayerLocked: false
+      }
+    });
+  },
+
   setRepositoryPath: async (path) => {
+    // Reset previous graph state before starting new scan
+    get().resetGraph();
     set({ isLoading: true, error: null });
 
     try {
@@ -317,8 +348,10 @@ export const useStore = create((set, get) => ({
       get().fetchGitIntelligence(effectivePath);
       get().loadComplexityData();
     } catch (error) {
+      const errMsg = error.message || 'Failed to load repository';
       set({
-        error: error.message || 'Failed to load repository',
+        error: errMsg,
+        apiError: errMsg,
         isLoading: false
       });
     }
@@ -333,6 +366,7 @@ export const useStore = create((set, get) => ({
       set({ complexityData: data });
     } catch (error) {
       console.error('Failed to load complexity data:', error);
+      set({ apiError: `Complexity analysis failed: ${error.message}` });
     }
   },
 
@@ -345,6 +379,7 @@ export const useStore = create((set, get) => ({
       set({ centralityData: data });
     } catch (error) {
       console.error('Failed to load centrality data:', error);
+      set({ apiError: `Centrality analysis failed: ${error.message}` });
     }
   },
 

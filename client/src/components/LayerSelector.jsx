@@ -126,7 +126,7 @@ export default function LayerSelector() {
     return (
         <>
             <div
-                className="absolute top-6 left-6 z-50 flex items-start gap-3"
+                className="absolute top-20 left-4 md:top-6 md:left-6 z-50 flex items-start gap-3"
                 onClick={(e) => e.stopPropagation()}
             >
                 <AnimatePresence mode="wait">

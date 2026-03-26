@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   GitBranch,
@@ -35,7 +35,7 @@ const viewModes = [
   }
 ];
 
-function Sidebar() {
+function Sidebar({ onNavigate }) {
   const {
     repositoryPath,
     repositoryInfo,
@@ -47,6 +47,14 @@ function Sidebar() {
   } = useStore();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Toggle function with resize trigger for D3
   const toggleSidebar = () => {
@@ -58,19 +66,25 @@ function Sidebar() {
 
   if (!repositoryPath) return null;
 
+  // On mobile, never show the collapsed icon-only state — always show full or hidden
+  const effectiveCollapsed = isMobile ? false : isCollapsed;
+
   return (
     <motion.aside
-      initial={{ width: 320 }}
-      animate={{ width: isCollapsed ? 64 : 320 }}
+      initial={{ width: isMobile ? '100%' : 320 }}
+      animate={{ width: isMobile ? '100%' : (effectiveCollapsed ? 64 : 320) }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="relative bg-[#0B0B15]/95 backdrop-blur-xl border-r border-white/10 flex flex-col z-40 h-full shadow-2xl overflow-hidden"
+      className={cn(
+        "relative bg-[#0B0B15]/95 backdrop-blur-xl border-r border-white/10 flex flex-col z-40 shadow-2xl overflow-hidden",
+        isMobile ? "h-full w-full max-h-[calc(100vh-64px)] overflow-y-auto" : "h-full"
+      )}
     >
       {/* Header with Minimize Button */}
       <div className={cn(
         "p-4 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-white/5 to-transparent transition-all duration-300",
-        isCollapsed ? "px-2 justify-center" : "px-6"
+        effectiveCollapsed ? "px-2 justify-center" : "px-6"
       )}>
-        {!isCollapsed && (
+        {!effectiveCollapsed && (
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-cbct-accent/20 flex items-center justify-center">
               <Layers className="w-4 h-4 text-cbct-accent" />
@@ -78,25 +92,27 @@ function Sidebar() {
             <h2 className="text-sm font-bold text-white tracking-tight">ANALYSIS</h2>
           </div>
         )}
-        <button
-          onClick={toggleSidebar}
-          className={cn(
-            "p-2 hover:bg-white/10 rounded-lg text-cbct-muted hover:text-white transition-all duration-300",
-            isCollapsed ? "bg-cbct-accent text-white hover:scale-110" : ""
-          )}
-          title={isCollapsed ? "Expand Sidebar" : "Minimize Sidebar"}
-        >
-          {isCollapsed ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
-        </button>
+        {!isMobile && (
+          <button
+            onClick={toggleSidebar}
+            className={cn(
+              "p-2 hover:bg-white/10 rounded-lg text-cbct-muted hover:text-white transition-all duration-300",
+              effectiveCollapsed ? "bg-cbct-accent text-white hover:scale-110" : ""
+            )}
+            title={effectiveCollapsed ? "Expand Sidebar" : "Minimize Sidebar"}
+          >
+            {effectiveCollapsed ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+          </button>
+        )}
       </div>
 
       {/* Content Container */}
       <div className={cn(
         "flex-1 flex flex-col overflow-hidden transition-all duration-300",
-        isCollapsed ? "opacity-0 invisible" : "opacity-100 visible"
+        effectiveCollapsed ? "opacity-0 invisible" : "opacity-100 visible"
       )}>
         {/* Scrollable Area */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6 md:space-y-8">
           {/* View Mode */}
           <div>
             <h2 className="text-[10px] font-bold text-cbct-muted uppercase tracking-[0.2em] mb-4 px-1">
@@ -106,7 +122,10 @@ function Sidebar() {
               {viewModes.map((mode) => (
                 <button
                   key={mode.id}
-                  onClick={() => setViewMode(mode.id)}
+                  onClick={() => {
+                    setViewMode(mode.id);
+                    onNavigate?.();
+                  }}
                   className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-left transition-all duration-300 group relative border ${viewMode === mode.id
                     ? 'bg-cbct-accent/10 border-cbct-accent/30 text-cbct-accent shadow-lg shadow-cbct-accent/5'
                     : 'border-transparent text-cbct-muted hover:bg-white/5 hover:text-white hover:border-white/10'
@@ -134,7 +153,7 @@ function Sidebar() {
           </div>
 
           {/* Repository Stats */}
-          {repositoryInfo && !isCollapsed && (
+          {repositoryInfo && !effectiveCollapsed && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <h2 className="text-[10px] font-bold text-cbct-muted uppercase tracking-[0.2em] mb-4 px-1">
                 Repository Stats
@@ -166,7 +185,7 @@ function Sidebar() {
           )}
 
           {/* Selected Unit Inspector (Mini) */}
-          {selectedNode && !isCollapsed && (
+          {selectedNode && !effectiveCollapsed && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <h2 className="text-[10px] font-bold text-cbct-accent uppercase tracking-[0.2em] mb-4 px-1">
                 Focused Unit
@@ -188,16 +207,14 @@ function Sidebar() {
         </div>
       </div>
 
-      {/* Collapsed View Shortcuts */}
-      {isCollapsed && (
+      {/* Collapsed View Shortcuts (desktop only) */}
+      {effectiveCollapsed && !isMobile && (
         <div className="flex-1 flex flex-col items-center py-8 space-y-6">
           {viewModes.map((mode) => (
             <button
               key={mode.id}
               onClick={() => {
                 setViewMode(mode.id);
-                // Expand on selection for better UX? Or just stay collapsed? 
-                // Let's stay collapsed but show active state.
               }}
               className={cn(
                 "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 relative group",
