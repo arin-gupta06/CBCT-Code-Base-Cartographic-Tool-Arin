@@ -30,18 +30,26 @@ async function initRedis() {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
     const isUpstash = redisUrl.startsWith('rediss://');
     
+    console.log('[Redis] Initializing client...');
+    console.log('[Redis] URL format:', isUpstash ? 'rediss:// (TLS)' : 'redis://');
+    
     redisClient = redis.createClient({
       url: redisUrl,
       socket: {
-        reconnectStrategy: (retries) => Math.min(retries * 50, 500),
-        connectTimeout: 10000,
+        reconnectStrategy: (retries) => {
+          // Only log every 10 retries to avoid log spam
+          if (retries % 10 === 0) {
+            console.log(`[Redis] Reconnect attempt ${retries}...`);
+          }
+          return Math.min(retries * 50, 5000); // Max 5s between attempts
+        },
+        connectTimeout: 15000,
         tls: isUpstash // Enable TLS for Upstash (rediss:// protocol)
       }
     });
 
     redisClient.on('error', (err) => {
-      console.warn('[Redis] Connection error:', err.message);
-      isConnected = false;
+      console.warn('[Redis] Connection error:', err.code || err.name, '-', err.message);
     });
 
     redisClient.on('connect', () => {
@@ -54,17 +62,13 @@ async function initRedis() {
       isConnected = true;
     });
 
-    redisClient.on('reconnecting', () => {
-      console.log('[Redis] Reconnecting...');
-    });
-
     await redisClient.connect();
     isConnected = true;
-    console.log('[Redis] Client initialized');
+    console.log('[Redis] Client initialized and connected');
 
     return redisClient;
   } catch (error) {
-    console.warn('[Redis] Failed to initialize:', error.message);
+    console.warn('[Redis] Failed to initialize:', error.code || error.name, '-', error.message);
     console.warn('[Redis] Cache layer disabled - will continue without caching');
     isConnected = false;
     return null;
