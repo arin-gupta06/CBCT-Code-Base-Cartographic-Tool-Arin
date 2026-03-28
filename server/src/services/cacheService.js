@@ -8,7 +8,7 @@
  * - Consistent key naming across CBCT
  */
 
-import { getRedisClient, isRedisConnected } from '../utils/redisClient.js';
+const { getRedisClient, isRedisConnected } = require('../utils/redisClient');
 
 /**
  * Standard cache key format: repo:{repoPath}:{type}
@@ -24,7 +24,7 @@ function getCacheKey(repoPath, type = 'analysis') {
  * @param {string} type - Cache type (analysis, complexity, centrality, etc)
  * @returns {Promise<object|null>} - Cached data or null if not found/error
  */
-export async function getCache(repoPath, type = 'analysis') {
+async function getCache(repoPath, type = 'analysis') {
   if (!isRedisConnected()) {
     return null;
   }
@@ -58,7 +58,7 @@ export async function getCache(repoPath, type = 'analysis') {
  * @param {number} ttl - Time to live in seconds (default: 3600 = 1 hour)
  * @returns {Promise<boolean>} - Success status
  */
-export async function setCache(repoPath, value, type = 'analysis', ttl = 3600) {
+async function setCache(repoPath, value, type = 'analysis', ttl = 3600) {
   if (!isRedisConnected()) {
     return false;
   }
@@ -86,7 +86,7 @@ export async function setCache(repoPath, value, type = 'analysis', ttl = 3600) {
  * @param {string} type - Cache type (null to invalidate all types)
  * @returns {Promise<boolean>} - Success status
  */
-export async function invalidateCache(repoPath, type = null) {
+async function invalidateCache(repoPath, type = null) {
   if (!isRedisConnected()) {
     return false;
   }
@@ -128,7 +128,7 @@ export async function invalidateCache(repoPath, type = null) {
  * @param {string} type - Cache type
  * @returns {Promise<boolean>} - Whether data exists in cache
  */
-export async function cacheExists(repoPath, type = 'analysis') {
+async function cacheExists(repoPath, type = 'analysis') {
   if (!isRedisConnected()) {
     return false;
   }
@@ -153,7 +153,7 @@ export async function cacheExists(repoPath, type = 'analysis') {
  * @param {string} type - Cache type
  * @returns {Promise<number>} - TTL in seconds (-1 if no expiry, -2 if not exists)
  */
-export async function getCacheTTL(repoPath, type = 'analysis') {
+async function getCacheTTL(repoPath, type = 'analysis') {
   if (!isRedisConnected()) {
     return -2;
   }
@@ -176,7 +176,7 @@ export async function getCacheTTL(repoPath, type = 'analysis') {
  * 
  * @returns {Promise<object>} - Cache stats (info from Redis)
  */
-export async function getCacheStats() {
+async function getCacheStats() {
   if (!isRedisConnected()) {
     return { status: 'disconnected' };
   }
@@ -198,7 +198,7 @@ export async function getCacheStats() {
  * 
  * @returns {Promise<boolean>} - Whether cache is healthy
  */
-export async function healthCheck() {
+async function healthCheck() {
   if (!isRedisConnected()) {
     return false;
   }
@@ -214,3 +214,13 @@ export async function healthCheck() {
     return false;
   }
 }
+
+module.exports = {
+  getCache,
+  setCache,
+  invalidateCache,
+  cacheExists,
+  getCacheTTL,
+  getCacheStats,
+  healthCheck
+};
