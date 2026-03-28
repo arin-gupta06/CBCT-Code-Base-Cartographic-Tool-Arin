@@ -25,7 +25,13 @@ Welcome to the comprehensive guide for the **Code Base Cartographic Tool (CBCT)*
 ### 💾 Redis & Caching
 - **[REDIS_INTEGRATION.md](REDIS_INTEGRATION.md)** — Redis caching layer implementation guide
 
+### ☁️ Cloud Services & Media
+- **[CLOUDINARY_QUICK_START.md](CLOUDINARY_QUICK_START.md)** — 5-minute Cloudinary SVG upload setup
+- **[CLOUDINARY_SVG_SETUP.md](CLOUDINARY_SVG_SETUP.md)** — Complete Cloudinary SVG management system documentation
+
 ### 🌐 Deployment
+- **[RENDER_PRODUCTION_SETUP.md](RENDER_PRODUCTION_SETUP.md)** — Production-ready Render deployment with graceful degradation
+- **[RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md)** — Render deployment configuration and troubleshooting
 - **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** — Complete deployment instructions (Upstash + Render + Vercel)
 - **[DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)** — Step-by-step deployment verification checklist
 - **[DEPLOYMENT_QUICK_REFERENCE.md](DEPLOYMENT_QUICK_REFERENCE.md)** — Quick reference card for deployment
